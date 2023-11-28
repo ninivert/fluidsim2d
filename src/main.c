@@ -38,7 +38,6 @@ static void mouse_position_callback(GLFWwindow* window, double x, double y) {
   mouse.pos_prev.y = mouse.pos.y;
   mouse.pos.x = x;
   mouse.pos.y = y;
-  // printf("mouse x=%f y=%f pressed=%d\n", mouse.x, mouse.y, mouse.pressed);
 }
 
 Point screen_to_world(Point screenpos, Point screenres, Point worldres) {
@@ -49,8 +48,7 @@ Point screen_to_world(Point screenpos, Point screenres, Point worldres) {
 }
 
 int main(int argc, char** argv) {
-  const uint N = 64;
-  const uint nx = N, ny = N;
+  const uint nx = 200, ny = 100;
   const double source = 100.0, force = 5.0;
 
   // init simulation
@@ -143,6 +141,7 @@ int main(int argc, char** argv) {
     }
 #endif
     
+    // copy the simulation density to the texture buffer
     for (size_t i = 0; i < nx*ny; ++i) buffer[i] = (float) sim->rho[i];
 
     glClear(GL_COLOR_BUFFER_BIT);

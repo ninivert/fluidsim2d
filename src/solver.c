@@ -2,10 +2,8 @@
 
 #include "utils.h"
 
-#define IX(i,j) ((i)+(N)*(j))
+#define IX(i,j) ((i)+(nx)*(j))
 #define SWAP(x0,x) { double * tmp=x0; x0=x; x=tmp; }
-#define FOR_EACH_CELL for ( i=1 ; i<N-1 ; i++ ) { for ( j=1 ; j<N-1 ; j++ ) {
-#define END_FOR }}
 
 typedef struct {
   uint nx, ny;
@@ -45,106 +43,98 @@ void sim_print(const Sim* sim) {
   printf("simulation with nx=%ui, ny=%ui, dt=%f, diff=%f, visc=%f\n", sim->nx, sim->ny, sim->dt, sim->diff, sim->visc);
 }
 
-// uint unravel(uint x, uint y, Arr2d* arr) {
-//   return y*arr->nx + x;
-// }
-// #define A(arr, x, y) arr->data[unravel(x, y, arr)]
-
-void add_source (uint N, double *x, const double *s, double dt) {
-  int i, size=N*N; // todo nx*ny
-  for ( i=0 ; i<size ; i++ ) x[i] += dt*s[i];
+void add_source (uint nx, uint ny, double *x, const double *s, double dt) {
+  for (uint i=0 ; i < nx*ny ; ++i) x[i] += dt*s[i];
 }
 
-void set_bnd ( int N, int b, double * x )
-{
-  int i;
+// TODO : function pointers ? enums ?
+void set_bnd (uint nx, uint ny, int b, double *x) {
+  double mult_lr = b == 1 ? -1.0 : 1.0;
+  double mult_tb = b == 2 ? -1.0 : 1.0;
 
-  for ( i=1 ; i<N-1 ; i++ ) {
-    x[IX(0  ,i)] = b==1 ? -x[IX(1,i)] : x[IX(1,i)];
-    x[IX(N-1,i)] = b==1 ? -x[IX(N-2,i)] : x[IX(N-2,i)];
-    x[IX(i,0  )] = b==2 ? -x[IX(i,1)] : x[IX(i,1)];
-    x[IX(i,N-1)] = b==2 ? -x[IX(i,N-2)] : x[IX(i,N-2)];
+  // top and bottom
+  for (uint i = 1; i < nx-1; ++i) {
+    x[IX(i,0   )] = mult_tb * x[IX(i,   1)];
+    x[IX(i,ny-1)] = mult_tb * x[IX(i,ny-2)];
   }
-  x[IX(0  ,0  )] = 0.5f*(x[IX(1,0  )]+x[IX(0  ,1)]);
-  x[IX(0  ,N-1)] = 0.5f*(x[IX(1,N-1)]+x[IX(0  ,N-2)]);
-  x[IX(N-1,0  )] = 0.5f*(x[IX(N-2,0  )]+x[IX(N-1,1)]);
-  x[IX(N-1,N-1)] = 0.5f*(x[IX(N-2,N-1)]+x[IX(N-1,N-2)]);
+
+  // left and right
+  for (uint j = 1; j < ny-1; ++j) {
+    x[IX(0   ,j)] = mult_lr * x[IX(1,   j)];
+    x[IX(nx-1,j)] = mult_lr * x[IX(nx-2,j)];
+  }
+
+  // set corners
+  x[IX(0  , 0   )] = 0.5f*(x[IX(1,0      )]+x[IX(0   ,1   )]);
+  x[IX(0  , ny-1)] = 0.5f*(x[IX(1,ny-1   )]+x[IX(0   ,ny-2)]);
+  x[IX(nx-1,0   )] = 0.5f*(x[IX(nx-2,0   )]+x[IX(nx-1,1   )]);
+  x[IX(nx-1,nx-1)] = 0.5f*(x[IX(nx-2,ny-1)]+x[IX(nx-1,ny-2)]);
 }
 
-void lin_solve ( int N, int b, double * x, double * x0, double a, double c )
-{
-  int i, j, k;
-
-  for ( k=0 ; k<20 ; k++ ) {
-    FOR_EACH_CELL
+void lin_solve (uint nx, uint ny, int b, double * x, const double * x0, double a, double c ) {
+  for (uint k=0 ; k<20 ; ++k) {
+    for (uint i=1 ; i<nx-1 ; ++i) { for (uint j=1 ; j<ny-1 ; ++j) {
       x[IX(i,j)] = (x0[IX(i,j)] + a*(x[IX(i-1,j)]+x[IX(i+1,j)]+x[IX(i,j-1)]+x[IX(i,j+1)]))/c;
-    END_FOR
-    set_bnd ( N, b, x );
+    }}
+    set_bnd (nx, ny, b, x);
   }
 }
 
-void diffuse ( int N, int b, double * x, double * x0, double diff, double dt )
-{
-  double a=dt*diff*N*N;
-  lin_solve ( N, b, x, x0, a, 1+4*a );
+void diffuse (uint nx, uint ny, int b, double * x, const double * x0, double diff, double dt) {
+  double a=dt*diff*nx*ny;
+  lin_solve ( nx, ny, b, x, x0, a, 1+4*a );
 }
 
-void advect ( int N, int b, double * d, double * d0, double * u, double * v, double dt )
-{
-  int i, j, i0, j0, i1, j1;
-  double x, y, s0, t0, s1, t1, dt0;
+void advect (uint nx, uint ny, int b, double * d, const double * d0, const double * u, const double * v, double dt) {
+  int i0, j0, i1, j1;
+  double x, y, s0, t0, s1, t1;
+  double dtx0 = dt*ny, dty0 = dt*ny;
 
-  dt0 = dt*N;
-  FOR_EACH_CELL
-    x = i-dt0*u[IX(i,j)]; y = j-dt0*v[IX(i,j)];
-    if (x<0.5f) x=0.5f; if (x>N-1.5f) x=N-1.5f; i0=(int)x; i1=i0+1;
-    if (y<0.5f) y=0.5f; if (y>N-1.5f) y=N-1.5f; j0=(int)y; j1=j0+1;
+  for (uint i=1 ; i<nx-1 ; ++i) { for (uint j=1 ; j<ny-1 ; ++j) {
+    x = i-dtx0*u[IX(i,j)]; y = j-dty0*v[IX(i,j)];
+    if (x<0.5) x=0.5; if (x>nx-1.5) x=nx-1.5; i0=(int)x; i1=i0+1;
+    if (y<0.5) y=0.5; if (y>ny-1.5) y=ny-1.5; j0=(int)y; j1=j0+1;
     s1 = x-i0; s0 = 1-s1; t1 = y-j0; t0 = 1-t1;
-    d[IX(i,j)] = s0*(t0*d0[IX(i0,j0)]+t1*d0[IX(i0,j1)])+
-           s1*(t0*d0[IX(i1,j0)]+t1*d0[IX(i1,j1)]);
-  END_FOR
-  set_bnd ( N, b, d );
+    d[IX(i,j)] = s0*(t0*d0[IX(i0,j0)]+t1*d0[IX(i0,j1)])+s1*(t0*d0[IX(i1,j0)]+t1*d0[IX(i1,j1)]);
+  }}
+  set_bnd (nx, ny, b, d);
 }
 
-void project ( int N, double * u, double * v, double * p, double * div )
-{
-  int i, j;
+void project (uint nx, uint ny, double *u, double *v, double *p, double *div) {
+  for (uint i=1 ; i<nx-1 ; ++i) { for (uint j=1 ; j<ny-1 ; ++j) {
+    div[IX(i,j)] = -0.5*((u[IX(i+1,j)]-u[IX(i-1,j)])/nx+(v[IX(i,j+1)]-v[IX(i,j-1)])/ny);
+    p[IX(i,j)] = 0.0;
+  }}	
+  set_bnd (nx, ny, 0, div); set_bnd (nx, ny, 0, p);
+  lin_solve (nx, ny, 0, p, div, 1.0, 4.0);
 
-  FOR_EACH_CELL
-    div[IX(i,j)] = -0.5f*(u[IX(i+1,j)]-u[IX(i-1,j)]+v[IX(i,j+1)]-v[IX(i,j-1)])/N;
-    p[IX(i,j)] = 0;
-  END_FOR	
-  set_bnd ( N, 0, div ); set_bnd ( N, 0, p );
-
-  lin_solve ( N, 0, p, div, 1, 4 );
-
-  FOR_EACH_CELL
-    u[IX(i,j)] -= 0.5f*N*(p[IX(i+1,j)]-p[IX(i-1,j)]);
-    v[IX(i,j)] -= 0.5f*N*(p[IX(i,j+1)]-p[IX(i,j-1)]);
-  END_FOR
-  set_bnd ( N, 1, u ); set_bnd ( N, 2, v );
+  for (uint i=1 ; i<nx-1 ; ++i) { for (uint j=1 ; j<ny-1 ; ++j) {
+    u[IX(i,j)] -= 0.5*nx*(p[IX(i+1,j)]-p[IX(i-1,j)]);
+    v[IX(i,j)] -= 0.5*ny*(p[IX(i,j+1)]-p[IX(i,j-1)]);
+  }}
+  set_bnd ( nx, ny, 1, u ); set_bnd ( nx, ny, 2, v );
 }
 
-void dens_step ( int N, double * x, double * x0, double * u, double * v, double diff, double dt )
+void dens_step ( uint nx, uint ny, double * x, double * x0, double * u, double * v, double diff, double dt )
 {
-  add_source ( N, x, x0, dt );
-  SWAP ( x0, x ); diffuse ( N, 0, x, x0, diff, dt );
-  SWAP ( x0, x ); advect ( N, 0, x, x0, u, v, dt );
+  add_source ( nx, ny, x, x0, dt );
+  SWAP ( x0, x ); diffuse ( nx, ny, 0, x, x0, diff, dt );
+  SWAP ( x0, x ); advect ( nx, ny, 0, x, x0, u, v, dt );
 }
 
-void vel_step ( int N, double * u, double * v, double * u0, double * v0, double visc, double dt )
+void vel_step ( uint nx, uint ny, double * u, double * v, double * u0, double * v0, double visc, double dt )
 {
-  add_source ( N, u, u0, dt ); add_source ( N, v, v0, dt );
-  SWAP ( u0, u ); diffuse ( N, 1, u, u0, visc, dt );
-  SWAP ( v0, v ); diffuse ( N, 2, v, v0, visc, dt );
-  project ( N, u, v, u0, v0 );
+  add_source ( nx, ny, u, u0, dt ); add_source ( nx, ny, v, v0, dt );
+  SWAP ( u0, u ); diffuse ( nx, ny, 1, u, u0, visc, dt );
+  SWAP ( v0, v ); diffuse ( nx, ny, 2, v, v0, visc, dt );
+  project ( nx, ny, u, v, u0, v0 );
   SWAP ( u0, u ); SWAP ( v0, v );
-  advect ( N, 1, u, u0, u0, v0, dt ); advect ( N, 2, v, v0, u0, v0, dt );
-  project ( N, u, v, u0, v0 );
+  advect ( nx, ny, 1, u, u0, u0, v0, dt ); advect ( nx, ny, 2, v, v0, u0, v0, dt );
+  project ( nx, ny, u, v, u0, v0 );
 }
 
 
 void sim_step(Sim* sim) {
-  vel_step(sim->nx, sim->vx, sim->vy, sim->vx_prev, sim->vy_prev, sim->visc, sim->dt);
-  dens_step(sim->nx, sim->rho, sim->rho_prev, sim->vx, sim->vy, sim->diff, sim->dt);
+  vel_step(sim->nx, sim->ny, sim->vx, sim->vy, sim->vx_prev, sim->vy_prev, sim->visc, sim->dt);
+  dens_step(sim->nx, sim->ny, sim->rho, sim->rho_prev, sim->vx, sim->vy, sim->diff, sim->dt);
 }
