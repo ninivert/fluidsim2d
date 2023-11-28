@@ -52,7 +52,7 @@ int main(int argc, char** argv) {
   const double source = 100.0, force = 5.0;
 
   // init simulation
-  Sim* sim = sim_new(nx, ny, 0.1, 0.0, 0.0, 20);
+  Sim* sim = sim_new(nx, ny, 0.1, 0.00001, 0.0, 20);
   sim_print(sim);
 
   if (!glfwInit()) { fprintf(stderr, "failed to initialize glfw\n"); return -1; }
