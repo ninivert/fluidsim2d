@@ -1,8 +1,5 @@
 #pragma once
 
-#include <stdlib.h>
-#include <stdio.h>
-
 typedef unsigned int uint;
 
 __attribute__((always_inline)) inline
@@ -13,22 +10,6 @@ static int clampi(int x, int a, int b)            { if (x < a) { return a; } els
 
 __attribute__((always_inline)) inline
 static double clamp(double x, double a, double b) { if (x < a) { return a; } else if (x > b) { return b; } else { return x; } }
-
-static void writearr(FILE* fp, double buf[], uint n) {
-  for (uint i = 0; i < n; ++i) {
-    // todo: a better way to dump the array than just the string
-    fprintf(fp, "%.17f ", buf[i]);
-  }
-  fprintf(fp, "\n");
-}
-
-static long long current_timestamp() {
-  struct timeval te; 
-  gettimeofday(&te, NULL); // get current time
-  long long milliseconds = te.tv_sec*1000LL + te.tv_usec/1000; // calculate milliseconds
-  // printf("milliseconds: %lld\n", milliseconds);
-  return milliseconds;
-}
 
 // static void linspace(double buf[], uint n, double xmin, double xmax) {
 // 	// @brief fills a grid with a constant spacing from xmin to xmax

@@ -1,24 +1,10 @@
 // 2D incompressible fluid solver
 // based on the work of : Jos Stam (jstam@aw.sgi.com), Creation Date : Jan 9 2003
 
-#pragma once
+#include "solver.h"
 
-#include <string.h>
-
-#include "utils.h"
-#ifdef _OPENMP
-#include "omp.h"
-#endif
-
-#define IX(i,j) ((i)+(nx)*(j))
-#define SWAP(x0,x) { double * tmp=x0; x0=x; x=tmp; }
-
-typedef struct {
-  uint nx, ny;
-  double diff, visc, dt;
-  uint nrelax;  // TODO : use a threshold instead if this is -1 ?
-  double *rho, *rho_prev, *vx, *vx_prev, *vx_, *vy, *vy_prev, *vy_;
-} Sim;
+#include <stdlib.h>
+#include <stdio.h>
 
 Sim* sim_new(uint nx, uint ny, double dt, double diff, double visc, uint nrelax) {
   Sim* sim = malloc(sizeof(*sim));
@@ -52,7 +38,7 @@ void sim_free(Sim* sim) {
 }
 
 void sim_print(const Sim* sim) {
-  printf("simulation with nx=%ui, ny=%ui, dt=%f, diff=%f, visc=%f\n", sim->nx, sim->ny, sim->dt, sim->diff, sim->visc);
+  printf("[sim] simulation with nx=%ui, ny=%ui, dt=%f, diff=%f, visc=%f\n", sim->nx, sim->ny, sim->dt, sim->diff, sim->visc);
 }
 
 void add_source (uint nx, uint ny, double *x, const double *s, double dt) {

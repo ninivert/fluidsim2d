@@ -3,8 +3,9 @@
 #include <stdbool.h>
 #include <math.h>
 
-#include "solver.c"
+#include "solver.h"
 #include "utils.h"
+#include "spinny.h"
 
 #include <glad/gl.h>
 #include <GLFW/glfw3.h>
@@ -118,14 +119,7 @@ int main(int argc, char** argv) {
     for (uint i = 0; i < nx*ny; ++i) { sim->rho_prev[i] = 0.0; }
 
     // spinny demo
-    for (size_t y = 0; y < sim->ny; ++y) { for (size_t x = 0; x < sim->nx; ++x) {
-      double xf = linterp(x, 0, nx-1, -1, 1), yf = linterp(y, 0, ny-1, -1, 1);
-      double r = sqrt(xf*xf + yf*yf), theta = atan2(yf, xf);
-      sim->vx_prev[IX(x, y)] = 0.01*r*sin(theta);
-      sim->vy_prev[IX(x, y)] = -0.01*r*cos(theta);
-    }}
-    for (size_t i = 0; i < nx*ny; ++i) sim->rho_prev[i] = 0.0;
-    sim->rho_prev[IX(nx/2+10,ny/2+10)] = 10.0;
+    spinny(sim);
 
     if (mouse.pressed) {
       if (mouse.which_pressed == GLFW_MOUSE_BUTTON_1) {
