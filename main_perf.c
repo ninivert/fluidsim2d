@@ -17,7 +17,6 @@
 
 int main(int argc, char** argv) {
 #ifdef _OPENMP
-  #pragma omp single
   printf("[omp] max threads=%d\n", omp_get_max_threads());
 #else
   printf("[no omp]\n");
@@ -25,19 +24,23 @@ int main(int argc, char** argv) {
 
   const uint nsteps = 1000;
   uint nx = 100, ny = 100;
+  if (argc >= 3) { nx = atoi(argv[1]); ny = atoi(argv[2]); }
 
   Sim* sim = sim_new(nx, ny, 0.1, 0.00001, 0.0, 100);
   sim_print(sim);
 
   long long t0 = current_timestamp();
+  long long totaltime = 0;
 
   for (uint istep = 0; istep < nsteps; ++istep) {
     if (istep % 100 == 0) printf("[sim] iter %u/%u\n", istep, nsteps);
+    long long tstep0 = current_timestamp();
     spinny(sim);  // apply sources
     sim_step(sim);  // solve
+    totaltime += current_timestamp() - tstep0;
   }
 
-  printf("[sim] finished in %llu milliseconds\n", current_timestamp() - t0);
+  printf("[sim] finished in %llu milliseconds, avg local compute time per step = %f ms\n", current_timestamp() - t0, (double) totaltime / (double) nsteps);
   write_results(sim);
   sim_free(sim);
 

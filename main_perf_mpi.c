@@ -3,7 +3,10 @@
 #include <math.h>
 #include <sys/time.h>
 
+#ifdef _OPENMP
 #include "omp.h"
+#endif
+
 #include "mpi.h"
 
 #include "solver.h"
@@ -27,15 +30,26 @@ int main(int argc, char** argv) {
   // assign roles
   enum Role role = rank == 0 ? ROLE_DENS : ROLE_VEL;
   rank_of_other = rank == 0 ? 1 : 0;
-  printf("[mpi %d/%d] role = %d\n", rank, size, role);
+  printf("[mpi %d/%d] hello from role = %d\n", rank, size, role);
 
-  // openmp greeting
-  #pragma omp single
-  printf("[omp] num threads:%d\n", omp_get_num_threads());
+  // openmp init
+#ifdef _OPENMP
+  uint max_threads = omp_get_max_threads();
+  double alpha0 = 0.25;
+  if (argc == 4) { alpha0 = atof(argv[3]); }
+  alpha0 = clamp(alpha0, 0.0, 1.0);
+  const double alpha = role == ROLE_DENS ? alpha0 : 1-alpha0;
+  uint nthreads = clampi((int) (alpha*(double) max_threads), 1, max_threads-1);
+  omp_set_num_threads(nthreads);
+  printf("[mpi %d/%d] omp max threads=%d, running with %d (alpha=%f)\n", rank, size, max_threads, nthreads, alpha);
+#else
+  printf("[no omp]\n");
+#endif
 
   // init simulation
   const uint nsteps = 1000;
   uint nx = 100, ny = 100;
+  if (argc >= 3) { nx = atoi(argv[1]); ny = atoi(argv[2]); }
 
   Sim* sim = sim_new(nx, ny, 0.1, 0.00001, 0.0, 100);
   if (rank == 0) sim_print(sim);
@@ -43,10 +57,12 @@ int main(int argc, char** argv) {
   MPI_Request request_v[2];
 
   long long t0 = current_timestamp();
+  long long totaltime = 0;
 
   for (uint istep = 0; istep < nsteps; ++istep) {
     if (istep % 100 == 0) printf("[sim %d/%d] iter %u/%u\n", rank, size, istep, nsteps);
 
+    long long tstep0 = current_timestamp();
     // apply sources and step
     if (role == ROLE_DENS) {
       spinny_dens(sim);
@@ -55,6 +71,7 @@ int main(int argc, char** argv) {
       spinny_vel(sim);
       vel_step(sim->nx, sim->ny, sim->nrelax, sim->vx, sim->vy, sim->vx_prev, sim->vy_prev, sim->visc, sim->dt);
     }
+    totaltime += current_timestamp() - tstep0;
 
     // vel process needs to update the vx,vy buffers of the density process
     // but vel is indep of density
@@ -68,7 +85,7 @@ int main(int argc, char** argv) {
     MPI_Waitall(2, request_v, MPI_STATUS_IGNORE);
   }
 
-  printf("[sim] finished in %llu milliseconds\n", current_timestamp() - t0);
+  printf("[sim %d/%d] finished in %llu milliseconds, avg local compute time per step = %f ms\n", rank, size, current_timestamp() - t0, (double) totaltime / (double) nsteps);
   // only the density thread has the full information
   if (role == ROLE_DENS) write_results(sim);
   sim_free(sim);
