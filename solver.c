@@ -66,7 +66,7 @@ void set_bnd (uint nx, uint ny, int b, double *x) {
   x[IX(0  , 0   )] = 0.5f*(x[IX(1,0      )]+x[IX(0   ,1   )]);
   x[IX(0  , ny-1)] = 0.5f*(x[IX(1,ny-1   )]+x[IX(0   ,ny-2)]);
   x[IX(nx-1,0   )] = 0.5f*(x[IX(nx-2,0   )]+x[IX(nx-1,1   )]);
-  x[IX(nx-1,nx-1)] = 0.5f*(x[IX(nx-2,ny-1)]+x[IX(nx-1,ny-2)]);
+  x[IX(nx-1,ny-1)] = 0.5f*(x[IX(nx-2,ny-1)]+x[IX(nx-1,ny-2)]);
 }
 
 #ifdef USE_GS
@@ -104,6 +104,8 @@ void lin_solve (uint nx, uint ny, uint nrelax, int b, double * x, const double *
   int num_threads;
   #pragma omp parallel
   { num_threads = omp_get_num_threads(); }
+  // #pragma omp single
+  // printf("nthreads=%d\n", num_threads);
   #endif
 
   for (uint k=0 ; k<nrelax ; ++k) {
@@ -181,9 +183,11 @@ void vel_step ( uint nx, uint ny, uint nrelax, double * u, double * v, double * 
 
 
 void sim_step(Sim* sim) {
+  // TODO: make the "leapfrog" or "both at same time" compile-time option
+  // to remove "both at same time", remove v{x,y}_
   // make copy of vx, vy so that density can work independantly
   memcpy(sim->vx_, sim->vx, sim->nx*sim->ny*sizeof(*sim->vx));
-  memcpy(sim->vy_, sim->vy, sim->nx*sim->ny*sizeof(*sim->vx));
+  memcpy(sim->vy_, sim->vy, sim->nx*sim->ny*sizeof(*sim->vy));
 
   // parallel region 1
   vel_step(sim->nx, sim->ny, sim->nrelax, sim->vx, sim->vy, sim->vx_prev, sim->vy_prev, sim->visc, sim->dt);
