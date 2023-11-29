@@ -4,6 +4,9 @@
 #pragma once
 
 #include "utils.h"
+// #ifdef _OPENMP
+// #include "omp.h"
+// #endif
 
 #define IX(i,j) ((i)+(nx)*(j))
 #define SWAP(x0,x) { double * tmp=x0; x0=x; x=tmp; }
@@ -23,12 +26,12 @@ Sim* sim_new(uint nx, uint ny, double dt, double diff, double visc, uint nrelax)
   sim->diff = diff;
   sim->visc = visc;
   sim->nrelax = nrelax;
-  sim->rho = malloc(nx*ny*sizeof(*sim->rho));
-  sim->rho_prev = malloc(nx*ny*sizeof(*sim->rho_prev));
-  sim->vx = malloc(nx*ny*sizeof(*sim->vx));
-  sim->vx_prev = malloc(nx*ny*sizeof(*sim->vx_prev));
-  sim->vy = malloc(nx*ny*sizeof(*sim->vy));
-  sim->vy_prev = malloc(nx*ny*sizeof(*sim->vy_prev));
+  sim->vx = calloc(nx*ny, sizeof(*sim->vx));
+  sim->vx_prev = calloc(nx*ny, sizeof(*sim->vx_prev));
+  sim->vy = calloc(nx*ny, sizeof(*sim->vy));
+  sim->vy_prev = calloc(nx*ny, sizeof(*sim->vy_prev));
+  sim->rho = calloc(nx*ny, sizeof(*sim->rho));
+  sim->rho_prev = calloc(nx*ny, sizeof(*sim->rho_prev));
   return sim;
 }
 
@@ -75,9 +78,11 @@ void set_bnd (uint nx, uint ny, int b, double *x) {
 }
 
 void lin_solve (uint nx, uint ny, uint nrelax, int b, double * x, const double * x0, double a, double c ) {
+  // int num_threads = omp_get_max_threads();
   for (uint k=0 ; k<nrelax ; ++k) {
+    // #pragma omp parallel for schedule(static, (nx-2)/num_threads)
     for (uint i=1 ; i<nx-1 ; ++i) { for (uint j=1 ; j<ny-1 ; ++j) {
-      x[IX(i,j)] = (x0[IX(i,j)] + a*(x[IX(i-1,j)]+x[IX(i+1,j)]+x[IX(i,j-1)]+x[IX(i,j+1)]))/c;
+        x[IX(i,j)] = (x0[IX(i,j)] + a*(x[IX(i-1,j)]+x[IX(i+1,j)]+x[IX(i,j-1)]+x[IX(i,j+1)]))/c;
     }}
     set_bnd (nx, ny, b, x);
   }
@@ -119,15 +124,13 @@ void project (uint nx, uint ny, uint nrelax, double *u, double *v, double *p, do
   set_bnd ( nx, ny, 1, u ); set_bnd ( nx, ny, 2, v );
 }
 
-void dens_step ( uint nx, uint ny, uint nrelax, double * x, double * x0, double * u, double * v, double diff, double dt )
-{
+void dens_step ( uint nx, uint ny, uint nrelax, double * x, double * x0, double * u, double * v, double diff, double dt ) {
   add_source ( nx, ny, x, x0, dt );
   SWAP ( x0, x ); diffuse ( nx, ny, nrelax, 0, x, x0, diff, dt );
   SWAP ( x0, x ); advect ( nx, ny, 0, x, x0, u, v, dt );
 }
 
-void vel_step ( uint nx, uint ny, uint nrelax, double * u, double * v, double * u0, double * v0, double visc, double dt )
-{
+void vel_step ( uint nx, uint ny, uint nrelax, double * u, double * v, double * u0, double * v0, double visc, double dt ) {
   add_source ( nx, ny, u, u0, dt ); add_source ( nx, ny, v, v0, dt );
   SWAP ( u0, u ); diffuse ( nx, ny, nrelax, 1, u, u0, visc, dt );
   SWAP ( v0, v ); diffuse ( nx, ny, nrelax, 2, v, v0, visc, dt );
