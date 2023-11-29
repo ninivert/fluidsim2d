@@ -69,6 +69,11 @@ void set_bnd (uint nx, uint ny, int b, double *x) {
   x[IX(nx-1,nx-1)] = 0.5f*(x[IX(nx-2,ny-1)]+x[IX(nx-1,ny-2)]);
 }
 
+#ifdef USE_GS
+// WARNING: gauss-seidel has race conditions when doing the omp parallel !!
+// this is because normally the top-left elements are already computed,
+// but now the right element might be already computed as well by the thread right !!
+
 void lin_solve (uint nx, uint ny, uint nrelax, int b, double * x, const double * x0, double a, double c ) {
   #ifdef _OPENMP
   int num_threads;
@@ -87,6 +92,34 @@ void lin_solve (uint nx, uint ny, uint nrelax, int b, double * x, const double *
     set_bnd (nx, ny, b, x);
   }
 }
+#else
+// lin_solve buffer for the Jacobi algorithm
+static double* x_ = NULL;
+
+void lin_solve (uint nx, uint ny, uint nrelax, int b, double * x, const double * x0, double a, double c ) {
+  // TODO: dirty !! this is a global buffer, and we assume nx and ny do not change !
+  if (!x_) x_ = malloc(nx*ny*sizeof(*x_));
+
+  #ifdef _OPENMP
+  int num_threads;
+  #pragma omp parallel
+  { num_threads = omp_get_num_threads(); }
+  #endif
+
+  for (uint k=0 ; k<nrelax ; ++k) {
+    #ifdef _OPENMP
+    #pragma omp parallel for schedule(static, (nx-2)/num_threads)
+    #endif
+    for (uint i=1 ; i<nx-1 ; ++i) {
+      for (uint j=1 ; j<ny-1 ; ++j) {
+        x_[IX(i,j)] = (x0[IX(i,j)] + a*(x[IX(i-1,j)]+x[IX(i+1,j)]+x[IX(i,j-1)]+x[IX(i,j+1)]))/c;
+      }
+    }
+    SWAP(x, x_);
+    set_bnd(nx, ny, b, x);
+  }
+}
+#endif
 
 void diffuse (uint nx, uint ny, uint nrelax, int b, double * x, const double * x0, double diff, double dt) {
   double a=dt*diff*nx*ny;

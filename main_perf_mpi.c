@@ -37,7 +37,7 @@ int main(int argc, char** argv) {
   const uint nsteps = 1000;
   uint nx = 100, ny = 100;
 
-  Sim* sim = sim_new(nx, ny, 0.1, 0.00001, 0.0, 20);
+  Sim* sim = sim_new(nx, ny, 0.1, 0.00001, 0.0, 100);
   if (rank == 0) sim_print(sim);
 
   MPI_Request request_v[2];

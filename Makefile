@@ -8,13 +8,17 @@ OPTIM=-O3 -march=native
 OPTIM+= -DDEBUG
 
 USE_OMP=0
-
 ifeq ($(USE_OMP), 1)
 CFLAGS+= -fopenmp
 endif
 
-RELEASE=0
+# use gauss-seidel algo (race condition !!)
+USE_GS=0
+ifeq ($(USE_GS), 1)
+CFLAGS+= -DUSE_GS=1
+endif
 
+RELEASE=0
 CFLAGS+= -Wall -Wextra -Wpedantic
 ifneq ($(RELEASE), 1)
 CFLAGS+= ${DEBUG}
