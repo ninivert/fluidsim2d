@@ -1,5 +1,6 @@
 CXX=g++
-CC=gcc
+# CC=gcc
+CC=mpicc
 LD=${CC}
 
 DEBUG=-O1 -ggdb -fsanitize=address -DDEBUG -fno-omit-frame-pointer
@@ -9,7 +10,7 @@ OPTIM+= -DDEBUG
 RELEASE=0
 
 CFLAGS+= -Wall -Wextra -Wpedantic
-CFLAGS+= -fopenmp
+# CFLAGS+= -fopenmp
 ifneq ($(RELEASE), 1)
 CFLAGS+= ${DEBUG}
 else

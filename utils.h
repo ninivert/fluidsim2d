@@ -22,6 +22,14 @@ static void writearr(FILE* fp, double buf[], uint n) {
   fprintf(fp, "\n");
 }
 
+static long long current_timestamp() {
+  struct timeval te; 
+  gettimeofday(&te, NULL); // get current time
+  long long milliseconds = te.tv_sec*1000LL + te.tv_usec/1000; // calculate milliseconds
+  // printf("milliseconds: %lld\n", milliseconds);
+  return milliseconds;
+}
+
 // static void linspace(double buf[], uint n, double xmin, double xmax) {
 // 	// @brief fills a grid with a constant spacing from xmin to xmax
 // 	double d = (xmax-xmin)/(n-1.0);
