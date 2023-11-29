@@ -46,7 +46,7 @@ int main(int argc, char** argv) {
   // openmp greeting
   #ifdef _OPENMP
     #pragma omp single
-    printf("[omp] max threads:%d\n", omp_get_max_threads());
+    printf("[omp] num threads:%d\n", omp_get_num_threads());
   #endif
 
   enum Role role = rank == 0 ? ROLE_DENS : ROLE_VEL;

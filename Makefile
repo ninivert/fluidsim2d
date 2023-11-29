@@ -10,7 +10,7 @@ OPTIM+= -DDEBUG
 RELEASE=0
 
 CFLAGS+= -Wall -Wextra -Wpedantic
-# CFLAGS+= -fopenmp
+CFLAGS+= -fopenmp
 ifneq ($(RELEASE), 1)
 CFLAGS+= ${DEBUG}
 else
