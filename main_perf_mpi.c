@@ -19,13 +19,16 @@ enum Role { ROLE_DENS, ROLE_VEL };
 int main(int argc, char** argv) {
   // init mpi
   int provided;
-  MPI_Init_thread(NULL, NULL, MPI_THREAD_FUNNELED, &provided);
-  if (provided < MPI_THREAD_FUNNELED) {
+  MPI_Init_thread(NULL, NULL, MPI_THREAD_SINGLE, &provided);
+  if (provided < MPI_THREAD_SINGLE) {
     MPI_Abort(MPI_COMM_WORLD, 1);
   }
+  // MPI_Init(NULL, NULL);
   int size, rank, rank_of_other;
   MPI_Comm_size(MPI_COMM_WORLD, &size);
   MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+
+  // TODO: assert that MPI has been called with np=2
 
   // assign roles
   enum Role role = rank == 0 ? ROLE_DENS : ROLE_VEL;
@@ -34,14 +37,18 @@ int main(int argc, char** argv) {
 
   // openmp init
 #ifdef _OPENMP
-  uint max_threads = omp_get_max_threads();
-  double alpha0 = 0.25;
-  if (argc == 4) { alpha0 = atof(argv[3]); }
-  alpha0 = clamp(alpha0, 0.0, 1.0);
-  const double alpha = role == ROLE_DENS ? alpha0 : 1-alpha0;
-  uint nthreads = clampi((int) (alpha*(double) max_threads), 1, max_threads-1);
+  // uint max_threads = omp_get_max_threads();
+  // double alpha0 = 0.25;
+  // if (argc == 4) { alpha0 = atof(argv[3]); }
+  // alpha0 = clamp(alpha0, 0.0, 1.0);
+  // const double alpha = role == ROLE_DENS ? alpha0 : 1-alpha0;
+  // uint nthreads = clampi((int) (alpha*(double) max_threads), 1, max_threads-1);
+  // printf("[mpi %d/%d] omp max threads=%d, running with %d (alpha=%f)\n", rank, size, max_threads, nthreads, alpha);
+  uint nthreads_dens = 2, nthreads_vel = 6;
+  if (argc == 5) { nthreads_dens = atoi(argv[3]); nthreads_vel = atoi(argv[4]); }
+  uint nthreads = role == ROLE_DENS ? nthreads_dens : nthreads_vel;
   omp_set_num_threads(nthreads);
-  printf("[mpi %d/%d] omp max threads=%d, running with %d (alpha=%f)\n", rank, size, max_threads, nthreads, alpha);
+  printf("[mpi %d/%d] omp running with %d threads\n", rank, size, nthreads);
 #else
   printf("[no omp]\n");
 #endif

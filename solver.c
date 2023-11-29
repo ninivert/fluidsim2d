@@ -100,17 +100,11 @@ void lin_solve (uint nx, uint ny, uint nrelax, int b, double * x, const double *
   // TODO: dirty !! this is a global buffer, and we assume nx and ny do not change !
   if (!x_) x_ = malloc(nx*ny*sizeof(*x_));
 
-  #ifdef _OPENMP
-  int num_threads;
-  #pragma omp parallel
-  { num_threads = omp_get_num_threads(); }
-  // #pragma omp single
-  // printf("nthreads=%d\n", num_threads);
-  #endif
-
   for (uint k=0 ; k<nrelax ; ++k) {
     #ifdef _OPENMP
-    #pragma omp parallel for schedule(static, (nx-2)/num_threads)
+    // slower for some reason
+    // #pragma omp parallel for collapse(2) schedule(static, (nx-2)*(ny-2)/omp_get_num_threads())
+    #pragma omp parallel for
     #endif
     for (uint i=1 ; i<nx-1 ; ++i) {
       for (uint j=1 ; j<ny-1 ; ++j) {

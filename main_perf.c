@@ -17,7 +17,10 @@
 
 int main(int argc, char** argv) {
 #ifdef _OPENMP
-  printf("[omp] max threads=%d\n", omp_get_max_threads());
+  uint max_threads = 1;
+  if (argc == 4) { max_threads = atoi(argv[3]); }
+  omp_set_num_threads(max_threads);
+  printf("[omp] using %d threads\n", omp_get_max_threads());
 #else
   printf("[no omp]\n");
 #endif
