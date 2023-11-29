@@ -32,10 +32,11 @@ int write_results(Sim* sim) {
   fprintf(fp, "vy\n");
   writearr(fp, sim->vy, sim->nx*sim->ny);
   fclose(fp);
+  return 0;
 }
 
 int main(int argc, char** argv) {
-  const nsteps = 1000;
+  const uint nsteps = 1000;
   uint nx = 100, ny = 100;
 
   if (argc == 3) {

@@ -3,6 +3,8 @@
 
 #pragma once
 
+#include <string.h>
+
 #include "utils.h"
 #ifdef _OPENMP
 #include "omp.h"
@@ -15,7 +17,7 @@ typedef struct {
   uint nx, ny;
   double diff, visc, dt;
   uint nrelax;  // TODO : use a threshold instead if this is -1 ?
-  double *rho, *rho_prev, *vx, *vx_prev, *vy, *vy_prev;
+  double *rho, *rho_prev, *vx, *vx_prev, *vx_, *vy, *vy_prev, *vy_;
 } Sim;
 
 Sim* sim_new(uint nx, uint ny, double dt, double diff, double visc, uint nrelax) {
@@ -27,8 +29,10 @@ Sim* sim_new(uint nx, uint ny, double dt, double diff, double visc, uint nrelax)
   sim->visc = visc;
   sim->nrelax = nrelax;
   sim->vx = calloc(nx*ny, sizeof(*sim->vx));
+  sim->vx_ = calloc(nx*ny, sizeof(*sim->vx_));
   sim->vx_prev = calloc(nx*ny, sizeof(*sim->vx_prev));
   sim->vy = calloc(nx*ny, sizeof(*sim->vy));
+  sim->vy_ = calloc(nx*ny, sizeof(*sim->vy_));
   sim->vy_prev = calloc(nx*ny, sizeof(*sim->vy_prev));
   sim->rho = calloc(nx*ny, sizeof(*sim->rho));
   sim->rho_prev = calloc(nx*ny, sizeof(*sim->rho_prev));
@@ -39,8 +43,10 @@ void sim_free(Sim* sim) {
   free(sim->rho);
   free(sim->rho_prev);
   free(sim->vx);
+  free(sim->vx_);
   free(sim->vx_prev);
   free(sim->vy);
+  free(sim->vy_);
   free(sim->vy_prev);
   free(sim);
 }
@@ -156,6 +162,13 @@ void vel_step ( uint nx, uint ny, uint nrelax, double * u, double * v, double * 
 
 
 void sim_step(Sim* sim) {
+  // make copy of vx, vy so that density can work independantly
+  memcpy(sim->vx_, sim->vx, sim->nx*sim->ny*sizeof(*sim->vx));
+  memcpy(sim->vy_, sim->vy, sim->nx*sim->ny*sizeof(*sim->vx));
+
+  // parallel region 1
   vel_step(sim->nx, sim->ny, sim->nrelax, sim->vx, sim->vy, sim->vx_prev, sim->vy_prev, sim->visc, sim->dt);
-  dens_step(sim->nx, sim->ny, sim->nrelax, sim->rho, sim->rho_prev, sim->vx, sim->vy, sim->diff, sim->dt);
+
+  // parallel region 2
+  dens_step(sim->nx, sim->ny, sim->nrelax, sim->rho, sim->rho_prev, sim->vx_, sim->vy_, sim->diff, sim->dt);
 }
