@@ -20,6 +20,8 @@ struct {
   int which_pressed;
 } mouse;
 
+static bool paused = false;
+
 static void error_callback(int error, const char* description) {
   fprintf(stderr, "Error: %s\n", description);
 }
@@ -27,6 +29,7 @@ static void error_callback(int error, const char* description) {
 static void key_callback(GLFWwindow* window, int key, int scancode, int action, int mods) {
   if (key == GLFW_KEY_ESCAPE && action == GLFW_PRESS)
     glfwSetWindowShouldClose(window, GLFW_TRUE);
+  if (key == GLFW_KEY_P && action == GLFW_PRESS) paused = !paused;
 }
 
 static void mouse_button_callback(GLFWwindow* window, int button, int action, int mods) {
@@ -135,7 +138,7 @@ int main(int argc, char** argv) {
     }
 
     // do computations
-    sim_step(sim);
+    if (!paused) sim_step(sim);
 
     // debug output
 #ifdef DEBUG
