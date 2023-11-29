@@ -2,7 +2,10 @@
 #include <stdlib.h>
 #include <math.h>
 #include <sys/time.h>
+
+#ifdef _OPENMP
 #include "omp.h"
+#endif
 
 #include "solver.c"
 #include "utils.h"
@@ -48,7 +51,10 @@ int main(int argc, char** argv) {
 
   long long t0 = current_timestamp();
 
-  printf("max threads:%d\n", omp_get_max_threads());
+#ifdef _OPENMP
+  #pragma omp single
+  printf("[omp] max threads:%d\n", omp_get_max_threads());
+#endif
 
   for (uint istep = 0; istep < nsteps; ++istep) {
     if (istep % 100 == 0) printf("%u / %u\n", istep, nsteps);

@@ -4,9 +4,9 @@
 #pragma once
 
 #include "utils.h"
-// #ifdef _OPENMP
-// #include "omp.h"
-// #endif
+#ifdef _OPENMP
+#include "omp.h"
+#endif
 
 #define IX(i,j) ((i)+(nx)*(j))
 #define SWAP(x0,x) { double * tmp=x0; x0=x; x=tmp; }
@@ -78,12 +78,20 @@ void set_bnd (uint nx, uint ny, int b, double *x) {
 }
 
 void lin_solve (uint nx, uint ny, uint nrelax, int b, double * x, const double * x0, double a, double c ) {
-  // int num_threads = omp_get_max_threads();
+  #ifdef _OPENMP
+  int num_threads;
+  #pragma omp parallel
+  { num_threads = omp_get_num_threads(); }
+  #endif
   for (uint k=0 ; k<nrelax ; ++k) {
-    // #pragma omp parallel for schedule(static, (nx-2)/num_threads)
-    for (uint i=1 ; i<nx-1 ; ++i) { for (uint j=1 ; j<ny-1 ; ++j) {
+    #ifdef _OPENMP
+    #pragma omp parallel for schedule(static, (nx-2)/num_threads)
+    #endif
+    for (uint i=1 ; i<nx-1 ; ++i) {
+      for (uint j=1 ; j<ny-1 ; ++j) {
         x[IX(i,j)] = (x0[IX(i,j)] + a*(x[IX(i-1,j)]+x[IX(i+1,j)]+x[IX(i,j-1)]+x[IX(i,j+1)]))/c;
-    }}
+      }
+    }
     set_bnd (nx, ny, b, x);
   }
 }
@@ -98,29 +106,35 @@ void advect (uint nx, uint ny, int b, double * d, const double * d0, const doubl
   double x, y, s0, t0, s1, t1;
   double dtx0 = dt*ny, dty0 = dt*ny;
 
-  for (uint i=1 ; i<nx-1 ; ++i) { for (uint j=1 ; j<ny-1 ; ++j) {
-    x = i-dtx0*u[IX(i,j)]; y = j-dty0*v[IX(i,j)];
-    x = clamp(x, 0.5, nx-1.5); y = clamp(y, 0.5, ny-1.5);
-    i0=(int)x; i1=i0+1;
-    j0=(int)y; j1=j0+1;
-    s1 = x-i0; s0 = 1-s1; t1 = y-j0; t0 = 1-t1;
-    d[IX(i,j)] = s0*(t0*d0[IX(i0,j0)]+t1*d0[IX(i0,j1)])+s1*(t0*d0[IX(i1,j0)]+t1*d0[IX(i1,j1)]);
-  }}
+  for (uint i=1 ; i<nx-1 ; ++i) {
+    for (uint j=1 ; j<ny-1 ; ++j) {
+      x = i-dtx0*u[IX(i,j)]; y = j-dty0*v[IX(i,j)];
+      x = clamp(x, 0.5, nx-1.5); y = clamp(y, 0.5, ny-1.5);
+      i0=(int)x; i1=i0+1;
+      j0=(int)y; j1=j0+1;
+      s1 = x-i0; s0 = 1-s1; t1 = y-j0; t0 = 1-t1;
+      d[IX(i,j)] = s0*(t0*d0[IX(i0,j0)]+t1*d0[IX(i0,j1)])+s1*(t0*d0[IX(i1,j0)]+t1*d0[IX(i1,j1)]);
+    }
+  }
   set_bnd (nx, ny, b, d);
 }
 
 void project (uint nx, uint ny, uint nrelax, double *u, double *v, double *p, double *div) {
-  for (uint i=1 ; i<nx-1 ; ++i) { for (uint j=1 ; j<ny-1 ; ++j) {
-    div[IX(i,j)] = -0.5*((u[IX(i+1,j)]-u[IX(i-1,j)])/nx+(v[IX(i,j+1)]-v[IX(i,j-1)])/ny);
-    p[IX(i,j)] = 0.0;
-  }}	
+  for (uint i=1 ; i<nx-1 ; ++i) {
+    for (uint j=1 ; j<ny-1 ; ++j) {
+      div[IX(i,j)] = -0.5*((u[IX(i+1,j)]-u[IX(i-1,j)])/nx+(v[IX(i,j+1)]-v[IX(i,j-1)])/ny);
+      p[IX(i,j)] = 0.0;
+    }
+  }
   set_bnd (nx, ny, 0, div); set_bnd (nx, ny, 0, p);
   lin_solve (nx, ny, nrelax, 0, p, div, 1.0, 4.0);
 
-  for (uint i=1 ; i<nx-1 ; ++i) { for (uint j=1 ; j<ny-1 ; ++j) {
-    u[IX(i,j)] -= 0.5*nx*(p[IX(i+1,j)]-p[IX(i-1,j)]);
-    v[IX(i,j)] -= 0.5*ny*(p[IX(i,j+1)]-p[IX(i,j-1)]);
-  }}
+  for (uint i=1 ; i<nx-1 ; ++i) {
+    for (uint j=1 ; j<ny-1 ; ++j) {
+      u[IX(i,j)] -= 0.5*nx*(p[IX(i+1,j)]-p[IX(i-1,j)]);
+      v[IX(i,j)] -= 0.5*ny*(p[IX(i,j+1)]-p[IX(i,j-1)]);
+    }
+  }
   set_bnd ( nx, ny, 1, u ); set_bnd ( nx, ny, 2, v );
 }
 
